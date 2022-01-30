@@ -8,16 +8,14 @@
     Default app changed to launch `jupyter labhub`.
     Use JUPYTERHUB_SINGLEUSER_APP=notebook.notebookapp.NotebookApp for the legacy 'classic' notebook server.
 """
+
 import os
 
 from traitlets import import_item
 
 from .mixins import make_singleuser_app
 
-JUPYTERHUB_SINGLEUSER_APP = os.environ.get("JUPYTERHUB_SINGLEUSER_APP")
-
-
-if JUPYTERHUB_SINGLEUSER_APP:
+if JUPYTERHUB_SINGLEUSER_APP := os.environ.get("JUPYTERHUB_SINGLEUSER_APP"):
     App = import_item(JUPYTERHUB_SINGLEUSER_APP)
 else:
     App = None
@@ -30,8 +28,6 @@ else:
             App = import_item(JUPYTERHUB_SINGLEUSER_APP)
         except ImportError as e:
             continue
-            if _import_error is None:
-                _import_error = e
         else:
             break
     if App is None:

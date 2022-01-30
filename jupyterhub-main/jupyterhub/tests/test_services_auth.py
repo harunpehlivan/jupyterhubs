@@ -472,7 +472,7 @@ async def test_oauth_cookie_collision(app, mockservice_url, create_user_with_sco
 
     # after completing both OAuth logins, no OAuth state cookies remain
     state_cookies = [s for s in s.cookies.keys() if s.startswith(state_cookie_name)]
-    assert state_cookies == []
+    assert not state_cookies
 
 
 async def test_oauth_logout(app, mockservice_url, create_user_with_scopes):

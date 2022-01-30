@@ -33,7 +33,7 @@ class Command(List):
         if isinstance(default_value, str):
             default_value = [default_value]
         if default_value is not Undefined and (
-            not (default_value is None and not kwargs.get("allow_none", False))
+            default_value is not None or kwargs.get("allow_none", False)
         ):
             kwargs["default_value"] = default_value
         super().__init__(Unicode(), **kwargs)
@@ -128,8 +128,7 @@ class EntryPointType(Type):
     @property
     def help(self):
         """Extend help by listing currently installed choices"""
-        chunks = [self._original_help]
-        chunks.append("Currently installed: ")
+        chunks = [self._original_help, 'Currently installed: ']
         for key, entry_point in self.load_entry_points().items():
             chunks.append(
                 "  - {}: {}.{}".format(

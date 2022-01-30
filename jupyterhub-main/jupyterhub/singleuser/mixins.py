@@ -58,10 +58,7 @@ def _bool_env(key):
 
     0, empty, or unset is False; All other values are True.
     """
-    if os.environ.get(key, "") in {"", "0"}:
-        return False
-    else:
-        return True
+    return os.environ.get(key, "") not in {"", "0"}
 
 
 # Authenticate requests with the Hub
@@ -86,9 +83,7 @@ class HubAuthenticatedHandler(HubOAuthenticated):
 
     @property
     def hub_groups(self):
-        if self.settings['group']:
-            return {self.settings['group']}
-        return set()
+        return {self.settings['group']} if self.settings['group'] else set()
 
 
 class JupyterHubLoginHandlerMixin:
@@ -413,10 +408,7 @@ class SingleUserNotebookAppMixin(Configurable):
 
     @default('log_level')
     def _log_level_default(self):
-        if _bool_env("JUPYTERHUB_DEBUG"):
-            return logging.DEBUG
-        else:
-            return logging.INFO
+        return logging.DEBUG if _bool_env("JUPYTERHUB_DEBUG") else logging.INFO
 
     @default('log_datefmt')
     def _log_datefmt_default(self):
@@ -527,8 +519,7 @@ class SingleUserNotebookAppMixin(Configurable):
 
     @default('hub_activity_interval')
     def _default_activity_interval(self):
-        env_value = os.environ.get('JUPYTERHUB_ACTIVITY_INTERVAL')
-        if env_value:
+        if env_value := os.environ.get('JUPYTERHUB_ACTIVITY_INTERVAL'):
             return int(env_value)
         else:
             return 300

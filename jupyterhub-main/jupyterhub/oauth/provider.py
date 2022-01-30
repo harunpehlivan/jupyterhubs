@@ -19,9 +19,7 @@ from ..utils import hash_token
 
 
 def is_absolute_uri(uri):
-    if uri.startswith('/'):
-        return True
-    return uri_validate.is_absolute_uri(uri)
+    return True if uri.startswith('/') else uri_validate.is_absolute_uri(uri)
 
 
 authorization_code.is_absolute_uri = is_absolute_uri
@@ -116,9 +114,8 @@ class JupyterHubRequestValidator(RequestValidator):
         )
         if redirect_uri == client.redirect_uri:
             return True
-        else:
-            app_log.warning("Redirect uri %s != %s", redirect_uri, client.redirect_uri)
-            return False
+        app_log.warning("Redirect uri %s != %s", redirect_uri, client.redirect_uri)
+        return False
 
     def get_default_redirect_uri(self, client_id, request, *args, **kwargs):
         """Get the default redirect URI for the client.
@@ -349,11 +346,12 @@ class JupyterHubRequestValidator(RequestValidator):
         orm.APIToken.new(
             client_id=client.identifier,
             expires_in=token['expires_in'],
-            roles=[rolename for rolename in request.scopes],
+            roles=list(request.scopes),
             token=token['access_token'],
             session_id=request.session_id,
             user=request.user,
         )
+
         return client.redirect_uri
 
     def validate_bearer_token(self, token, scopes, request):
@@ -496,11 +494,10 @@ class JupyterHubRequestValidator(RequestValidator):
             return False
         if redirect_uri == orm_client.redirect_uri:
             return True
-        else:
-            app_log.warning(
-                "Redirect uri %s != %s", redirect_uri, orm_client.redirect_uri
-            )
-            return False
+        app_log.warning(
+            "Redirect uri %s != %s", redirect_uri, orm_client.redirect_uri
+        )
+        return False
 
     def validate_refresh_token(self, refresh_token, client, request, *args, **kwargs):
         """Ensure the Bearer token is valid and authorized access to scopes.
@@ -516,7 +513,6 @@ class JupyterHubRequestValidator(RequestValidator):
             - Refresh Token Grant
         """
         return False
-        raise NotImplementedError('Subclasses must implement this method.')
 
     def validate_response_type(
         self, client_id, response_type, client, request, *args, **kwargs
@@ -559,8 +555,7 @@ class JupyterHubRequestValidator(RequestValidator):
         client_allowed_roles.setdefault('identify', None)
         roles = []
         requested_roles = set(scopes)
-        disallowed_roles = requested_roles.difference(client_allowed_roles)
-        if disallowed_roles:
+        if disallowed_roles := requested_roles.difference(client_allowed_roles):
             app_log.error(
                 f"Role(s) not allowed for {client_id}: {','.join(disallowed_roles)}"
             )
@@ -607,7 +602,7 @@ class JupyterHubOAuthServer(WebApplicationServer):
             app_log.info(f'Creating oauth client {client_id}')
         else:
             app_log.info(f'Updating oauth client {client_id}')
-        if allowed_roles == None:
+        if allowed_roles is None:
             allowed_roles = []
         orm_client.secret = hash_token(client_secret) if client_secret else ""
         orm_client.redirect_uri = redirect_uri
@@ -627,5 +622,4 @@ def make_provider(session_factory, url_prefix, login_url, **oauth_server_kwargs)
     """Make an OAuth provider"""
     db = session_factory()
     validator = JupyterHubRequestValidator(db)
-    server = JupyterHubOAuthServer(db, validator, **oauth_server_kwargs)
-    return server
+    return JupyterHubOAuthServer(db, validator, **oauth_server_kwargs)

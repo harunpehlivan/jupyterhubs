@@ -534,8 +534,7 @@ async def test_user_redirect_hook(app, username):
         assert request.uri == ujoin(
             base_url, 'hub', 'user-redirect', 'redirect-to-terminal'
         )
-        url = ujoin(user.url, '/terminals/1')
-        return url
+        return ujoin(user.url, '/terminals/1')
 
     app.user_redirect_hook = dummy_redirect
 

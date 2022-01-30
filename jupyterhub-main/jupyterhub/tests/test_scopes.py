@@ -125,8 +125,7 @@ class MockAPIHandler:
 
 @pytest.fixture
 def mock_handler():
-    obj = MockAPIHandler()
-    return obj
+    return MockAPIHandler()
 
 
 @mark.parametrize(

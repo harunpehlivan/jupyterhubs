@@ -95,10 +95,7 @@ class CryptKeeper(SingletonConfigurable):
         # load application config by default
         from .app import JupyterHub
 
-        if JupyterHub.initialized():
-            return JupyterHub.instance().config
-        else:
-            return Config()
+        return JupyterHub.instance().config if JupyterHub.initialized() else Config()
 
     executor = Any()
 

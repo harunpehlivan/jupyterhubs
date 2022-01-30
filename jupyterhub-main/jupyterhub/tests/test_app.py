@@ -128,8 +128,7 @@ async def test_init_tokens(request):
             'boagasdfasdf': 'chell',
         }
         kwargs = {'db_url': db_file, 'api_tokens': tokens}
-        ssl_enabled = getattr(request.module, "ssl_enabled", False)
-        if ssl_enabled:
+        if ssl_enabled := getattr(request.module, "ssl_enabled", False):
             kwargs['internal_certs_location'] = td
         app = MockHub(**kwargs)
         await app.initialize([])
@@ -161,8 +160,7 @@ async def test_init_tokens(request):
 def test_write_cookie_secret(tmpdir, request):
     secret_path = str(tmpdir.join('cookie_secret'))
     kwargs = {'cookie_secret_file': secret_path}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     hub.init_secrets()
@@ -177,8 +175,7 @@ def test_cookie_secret_permissions(tmpdir, request):
     secret = os.urandom(COOKIE_SECRET_BYTES)
     secret_file.write(binascii.b2a_hex(secret))
     kwargs = {'cookie_secret_file': secret_path}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
 
@@ -199,8 +196,7 @@ def test_cookie_secret_content(tmpdir, request):
     secret_path = str(secret_file)
     os.chmod(secret_path, 0o660)
     kwargs = {'cookie_secret_file': secret_path}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     with pytest.raises(SystemExit):
@@ -209,8 +205,7 @@ def test_cookie_secret_content(tmpdir, request):
 
 def test_cookie_secret_env(tmpdir, request):
     kwargs = {'cookie_secret_file': str(tmpdir.join('cookie_secret'))}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
 
@@ -242,8 +237,7 @@ async def test_load_groups(tmpdir, request):
         'gold': ['storm', 'jean-grey', 'colossus'],
     }
     kwargs = {'load_groups': to_load}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     hub.init_db()
@@ -273,8 +267,7 @@ async def test_resume_spawners(tmpdir, request):
 
     async def new_hub():
         kwargs = {}
-        ssl_enabled = getattr(request.module, "ssl_enabled", False)
-        if ssl_enabled:
+        if ssl_enabled := getattr(request.module, "ssl_enabled", False):
             kwargs['internal_certs_location'] = str(tmpdir)
         app = MockHub(test_clean_db=False, **kwargs)
         app.config.ConfigurableHTTPProxy.should_start = False

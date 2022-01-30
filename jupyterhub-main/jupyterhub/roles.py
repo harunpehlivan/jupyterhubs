@@ -21,7 +21,7 @@ def get_default_roles():
         'scopes': list of scopes,
       }
     """
-    default_roles = [
+    return [
         {
             'name': 'user',
             'description': 'Standard user privileges',
@@ -62,7 +62,6 @@ def get_default_roles():
             'scopes': ['inherit'],
         },
     ]
-    return default_roles
 
 
 def expand_self_scope(name):
@@ -115,8 +114,7 @@ def horizontal_filter(func):
         expanded_scope = func(scopename)
         # add the filter back
         full_expanded_scope = {scope + mark + hor_filter for scope in expanded_scope}
-        server_filter = expand_server_filter(hor_filter)
-        if server_filter:
+        if server_filter := expand_server_filter(hor_filter):
             full_expanded_scope.add(server_filter)
         return full_expanded_scope
 
@@ -165,9 +163,7 @@ def expand_roles_to_scopes(orm_object):
         for group in orm_object.groups:
             pass_roles.extend(group.roles)
 
-    expanded_scopes = _get_subscopes(*pass_roles, owner=orm_object)
-
-    return expanded_scopes
+    return _get_subscopes(*pass_roles, owner=orm_object)
 
 
 def _get_subscopes(*roles, owner=None):
@@ -222,11 +218,7 @@ def _check_scopes(*args, rolename=None):
     allowed_scopes = set(scopes.scope_definitions.keys())
     allowed_filters = ['!user=', '!service=', '!group=', '!server=', '!user']
 
-    if rolename:
-        log_role = f"for role {rolename}"
-    else:
-        log_role = ""
-
+    log_role = f"for role {rolename}" if rolename else ""
     for scope in args:
         scopename, _, filter_ = scope.partition('!')
         if scopename not in allowed_scopes:
@@ -235,7 +227,7 @@ def _check_scopes(*args, rolename=None):
             raise KeyError(f"Scope '{scope}' {log_role} does not exist")
         if filter_:
             full_filter = f"!{filter_}"
-            if not any(f in scope for f in allowed_filters):
+            if all(f not in scope for f in allowed_filters):
                 raise KeyError(
                     f"Scope filter '{full_filter}' in scope '{scope}' {log_role} does not exist"
                 )
@@ -267,10 +259,9 @@ def create_role(db, role_dict):
 
     if 'name' not in role_dict.keys():
         raise KeyError('Role definition must have a name')
-    else:
-        name = role_dict['name']
-        _validate_role_name(name)
-        role = orm.Role.find(db, name)
+    name = role_dict['name']
+    _validate_role_name(name)
+    role = orm.Role.find(db, name)
 
     description = role_dict.get('description')
     scopes = role_dict.get('scopes')
@@ -325,8 +316,7 @@ def delete_role(db, rolename):
     if any(role['name'] == rolename for role in default_roles):
         raise ValueError('Default role %r cannot be removed', rolename)
 
-    role = orm.Role.find(db, rolename)
-    if role:
+    if role := orm.Role.find(db, rolename):
         db.delete(role)
         db.commit()
         app_log.info('Role %s has been deleted', rolename)
@@ -355,11 +345,7 @@ def _existing_only(func):
 @_existing_only
 def grant_role(db, entity, role):
     """Adds a role for users, services, groups or tokens"""
-    if isinstance(entity, orm.APIToken):
-        entity_repr = entity
-    else:
-        entity_repr = entity.name
-
+    entity_repr = entity if isinstance(entity, orm.APIToken) else entity.name
     if role not in entity.roles:
         entity.roles.append(role)
         db.commit()
@@ -374,10 +360,7 @@ def grant_role(db, entity, role):
 @_existing_only
 def strip_role(db, entity, role):
     """Removes a role for users, services, groups or tokens"""
-    if isinstance(entity, orm.APIToken):
-        entity_repr = entity
-    else:
-        entity_repr = entity.name
+    entity_repr = entity if isinstance(entity, orm.APIToken) else entity.name
     if role in entity.roles:
         entity.roles.remove(role)
         db.commit()
@@ -412,16 +395,14 @@ def _token_allowed_role(db, token, role):
     allowed_scopes = scopes._intersect_expanded_scopes(
         explicit_scopes, expanded_owner_scopes, db
     )
-    disallowed_scopes = explicit_scopes.difference(allowed_scopes)
-
-    if not disallowed_scopes:
-        # no scopes requested outside owner's own scopes
-        return True
-    else:
+    if disallowed_scopes := explicit_scopes.difference(allowed_scopes):
         app_log.warning(
             f"Token requesting role {role.name} with scopes not held by owner {owner.name}: {disallowed_scopes}"
         )
         return False
+    else:
+        # no scopes requested outside owner's own scopes
+        return True
 
 
 def assign_default_roles(db, entity):
@@ -468,20 +449,18 @@ def update_roles(db, entity, roles):
     """
     for rolename in roles:
         if isinstance(entity, orm.APIToken):
-            role = orm.Role.find(db, rolename)
-            if role:
-                app_log.debug(
-                    'Checking token permissions against requested role %s', rolename
-                )
-                if _token_allowed_role(db, entity, role):
-                    role.tokens.append(entity)
-                    app_log.info('Adding role %s to token: %s', role.name, entity)
-                else:
-                    raise ValueError(
-                        f'Requested token role {rolename} for {entity} has more permissions than the token owner'
-                    )
-            else:
+            if not (role := orm.Role.find(db, rolename)):
                 raise KeyError(f'Role {rolename} does not exist')
+            app_log.debug(
+                'Checking token permissions against requested role %s', rolename
+            )
+            if _token_allowed_role(db, entity, role):
+                role.tokens.append(entity)
+                app_log.info('Adding role %s to token: %s', role.name, entity)
+            else:
+                raise ValueError(
+                    f'Requested token role {rolename} for {entity} has more permissions than the token owner'
+                )
         else:
             grant_role(db, entity=entity, rolename=rolename)
 
@@ -491,9 +470,7 @@ def check_for_default_roles(db, bearer):
     Groups can be without a role
     """
     Class = orm.get_class(bearer)
-    if Class in {orm.Group, orm.Service}:
-        pass
-    else:
+    if Class not in {orm.Group, orm.Service}:
         for obj in (
             db.query(Class)
             .outerjoin(orm.Role, Class.roles)

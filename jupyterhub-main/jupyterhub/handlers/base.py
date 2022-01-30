@@ -354,8 +354,7 @@ class BaseHandler(RequestHandler):
         token = self.get_auth_token()
         if token is None:
             return None
-        orm_token = orm.APIToken.find(self.db, token)
-        return orm_token
+        return orm.APIToken.find(self.db, token)
 
     def get_current_user_token(self):
         """get_current_user from Authorization header token"""
@@ -365,12 +364,10 @@ class BaseHandler(RequestHandler):
             return None
         now = datetime.utcnow()
         recorded = self._record_activity(orm_token, now)
-        if orm_token.user:
-            # FIXME: scopes should give us better control than this
-            # don't consider API requests originating from a server
-            # to be activity from the user
-            if not orm_token.note or not orm_token.note.startswith("Server at "):
-                recorded = self._record_activity(orm_token.user, now) or recorded
+        if orm_token.user and (
+            not orm_token.note or not orm_token.note.startswith("Server at ")
+        ):
+            recorded = self._record_activity(orm_token.user, now) or recorded
         if recorded:
             self.db.commit()
 
@@ -438,8 +435,7 @@ class BaseHandler(RequestHandler):
     def _resolve_roles_and_scopes(self):
         self.expanded_scopes = set()
         if self.current_user:
-            orm_token = self.get_token()
-            if orm_token:
+            if orm_token := self.get_token():
                 self.expanded_scopes = scopes.get_scopes_for(orm_token)
             else:
                 self.expanded_scopes = scopes.get_scopes_for(self.current_user)
@@ -499,8 +495,7 @@ class BaseHandler(RequestHandler):
         if self.subdomain_host:
             kwargs['domain'] = self.domain
         user = self.get_current_user_cookie()
-        session_id = self.get_session_cookie()
-        if session_id:
+        if session_id := self.get_session_cookie():
             # clear session id
             self.clear_cookie(SESSION_COOKIE_NAME, path=self.base_url, **kwargs)
 
@@ -551,11 +546,7 @@ class BaseHandler(RequestHandler):
         kwargs.update(self.settings.get('cookie_options', {}))
         kwargs.update(overrides)
 
-        if encrypted:
-            set_cookie = self.set_secure_cookie
-        else:
-            set_cookie = self.set_cookie
-
+        set_cookie = self.set_secure_cookie if encrypted else self.set_cookie
         self.log.debug("Setting cookie %s: %s", key, kwargs)
         set_cookie(key, value, **kwargs)
 
@@ -675,21 +666,15 @@ class BaseHandler(RequestHandler):
             )
 
         # this is where we know if next_url is coming from ?next= param or we are using a default url
-        if next_url:
-            next_url_from_param = True
-        else:
-            next_url_from_param = False
-
+        next_url_from_param = bool(next_url)
         if not next_url:
             # custom default URL, usually passed because user landed on that page but was not logged in
             if default:
                 next_url = default
+            elif callable(self.default_url):
+                next_url = self.default_url(self)
             else:
-                # As set in jupyterhub_config.py
-                if callable(self.default_url):
-                    next_url = self.default_url(self)
-                else:
-                    next_url = self.default_url
+                next_url = self.default_url
 
         if not next_url:
             # default URL after login
@@ -734,12 +719,11 @@ class BaseHandler(RequestHandler):
         if exclude is None:
             exclude = ['next']
         if self.request.query:
-            query_string = [
+            if query_string := [
                 param
                 for param in parse_qsl(self.request.query)
                 if param[0] not in exclude
-            ]
-            if query_string:
+            ]:
                 url = url_concat(url, query_string)
         return url
 
@@ -764,8 +748,7 @@ class BaseHandler(RequestHandler):
 
         if user is None:
             user = self.find_user(username)
-            new_user = user is None
-            if new_user:
+            if new_user := user is None:
                 user = self.user_from_username(username)
                 await maybe_future(self.authenticator.add_user(user))
         # Only set `admin` if the authenticator returned an explicit value.
@@ -1227,10 +1210,7 @@ class BaseHandler(RequestHandler):
 
         If sync is False, we return a Template that is compiled with async support
         """
-        if sync:
-            key = 'jinja2_env_sync'
-        else:
-            key = 'jinja2_env'
+        key = 'jinja2_env_sync' if sync else 'jinja2_env'
         return self.settings[key].get_template(name)
 
     def render_template(self, name, sync=False, **ns):
@@ -1295,9 +1275,7 @@ class BaseHandler(RequestHandler):
             except Exception:
                 pass
 
-            # construct the custom reason, if defined
-            reason = getattr(exception, 'reason', '')
-            if reason:
+            if reason := getattr(exception, 'reason', ''):
                 message = reasons.get(reason, reason)
 
         if exception and isinstance(exception, SQLAlchemyError):
@@ -1315,10 +1293,7 @@ class BaseHandler(RequestHandler):
 
         self.set_header('Content-Type', 'text/html')
         if isinstance(exception, web.HTTPError):
-            # allow setting headers from exceptions
-            # since exception handler clears headers
-            headers = getattr(exception, 'headers', None)
-            if headers:
+            if headers := getattr(exception, 'headers', None):
                 for key, value in headers.items():
                     self.set_header(key, value)
             # Content-Length must be recalculated.

@@ -41,8 +41,7 @@ class Generator:
         writer = self.create_writer(table_name, headers, values)
 
         title = "List of Prometheus Metrics"
-        underline = "============================"
-        content = f"{title}\n{underline}\n{writer.dumps()}"
+        content = f'{title}\n============================\n{writer.dumps()}'
         with open(filename, 'w') as f:
             f.write(content)
         print(f"Generated {filename}.")

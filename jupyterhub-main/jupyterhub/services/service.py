@@ -82,9 +82,7 @@ class _MockUser(HasTraits):
 
     @property
     def base_url(self):
-        if not self.server:
-            return ''
-        return self.server.base_url
+        return '' if not self.server else self.server.base_url
 
 
 # We probably shouldn't use a Spawner here,
@@ -115,10 +113,7 @@ class _ServiceSpawner(LocalProcessSpawner):
         return set_user_setuid(name, chdir=False)
 
     def user_env(self, env):
-        if not self.user.name:
-            return env
-        else:
-            return super().user_env(env)
+        return env if not self.user.name else super().user_env(env)
 
     def start(self):
         """Start the process"""
@@ -345,10 +340,7 @@ class Service(LoggingConfigurable):
 
     @property
     def server(self):
-        if self.orm.server:
-            return Server.from_orm(self.orm.server)
-        else:
-            return None
+        return Server.from_orm(self.orm.server) if self.orm.server else None
 
     @property
     def prefix(self):

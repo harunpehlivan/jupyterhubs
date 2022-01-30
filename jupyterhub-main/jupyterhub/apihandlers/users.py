@@ -58,14 +58,7 @@ class SelfAPIHandler(APIHandler):
 
         model = get_model(user)
 
-        # add session_id associated with token
-        # added in 2.0
-        token = self.get_token()
-        if token:
-            model["session_id"] = token.session_id
-        else:
-            model["session_id"] = None
-
+        model["session_id"] = token.session_id if (token := self.get_token()) else None
         # add scopes to identify model,
         # but not the scopes we added to ensure we could read our own model
         model["scopes"] = sorted(self.expanded_scopes.difference(_added_scopes))
@@ -154,8 +147,7 @@ class UserListAPIHandler(APIHandler):
         user_list = []
         for u in query:
             if post_filter is None or post_filter(u):
-                user_model = self.user_model(u)
-                if user_model:
+                if user_model := self.user_model(u):
                     user_list.append(user_model)
 
         total_count = full_query.count()
@@ -311,13 +303,15 @@ class UserAPIHandler(APIHandler):
             raise web.HTTPError(404)
         data = self.get_json_body()
         self._check_user_model(data)
-        if 'name' in data and data['name'] != user_name:
-            # check if the new name is already taken inside db
-            if self.find_user(data['name']):
-                raise web.HTTPError(
-                    400,
-                    "User %s already exists, username must be unique" % data['name'],
-                )
+        if (
+            'name' in data
+            and data['name'] != user_name
+            and self.find_user(data['name'])
+        ):
+            raise web.HTTPError(
+                400,
+                "User %s already exists, username must be unique" % data['name'],
+            )
         for key, value in data.items():
             if key == 'auth_state':
                 await user.save_auth_state(value)
@@ -713,18 +707,16 @@ class SpawnProgressAPIHandler(APIHandler):
             # not pending, no progress to fetch
             # check if spawner has just failed
             f = spawn_future
-            if f and f.done() and f.exception():
-                exc = f.exception()
-                message = getattr(exc, "jupyterhub_message", str(exc))
-                failed_event['message'] = f"Spawn failed: {message}"
-                html_message = getattr(exc, "jupyterhub_html_message", "")
-                if html_message:
-                    failed_event['html_message'] = html_message
-                await self.send_event(failed_event)
-                return
-            else:
+            if not f or not f.done() or not f.exception():
                 raise web.HTTPError(400, "%s is not starting...", spawner._log_name)
 
+            exc = f.exception()
+            message = getattr(exc, "jupyterhub_message", str(exc))
+            failed_event['message'] = f"Spawn failed: {message}"
+            if html_message := getattr(exc, "jupyterhub_html_message", ""):
+                failed_event['html_message'] = html_message
+            await self.send_event(failed_event)
+            return
         # retrieve progress events from the Spawner
         async with aclosing(
             iterate_until(spawn_future, spawner._generate_progress())
@@ -755,8 +747,7 @@ class SpawnProgressAPIHandler(APIHandler):
                 exc = f.exception()
                 message = getattr(exc, "jupyterhub_message", str(exc))
                 failed_event['message'] = f"Spawn failed: {message}"
-                html_message = getattr(exc, "jupyterhub_html_message", "")
-                if html_message:
+                if html_message := getattr(exc, "jupyterhub_html_message", ""):
                     failed_event['html_message'] = html_message
             else:
                 self.log.warning(

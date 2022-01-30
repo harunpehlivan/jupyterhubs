@@ -169,8 +169,7 @@ class Authenticator(LoggingConfigurable):
 
     @observe('allowed_users')
     def _check_allowed_users(self, change):
-        short_names = [name for name in change['new'] if len(name) <= 1]
-        if short_names:
+        if short_names := [name for name in change['new'] if len(name) <= 1]:
             sorted_names = sorted(short_names)
             single = ''.join(sorted_names)
             string_set_typo = "set('%s')" % single
@@ -424,10 +423,7 @@ class Authenticator(LoggingConfigurable):
         .. versionchanged:: 1.2
             Renamed check_whitelist to check_allowed
         """
-        if not self.allowed_users:
-            # No allowed set means any name is allowed
-            return True
-        return username in self.allowed_users
+        return True if not self.allowed_users else username in self.allowed_users
 
     def check_blocked_users(self, username, authentication=None):
         """Check if a username is blocked to authenticate based on Authenticator.blocked configuration
@@ -445,10 +441,7 @@ class Authenticator(LoggingConfigurable):
         .. versionchanged:: 1.2
             Renamed check_blacklist to check_blocked_users
         """
-        if not self.blocked_users:
-            # No block list means any name is allowed
-            return True
-        return username not in self.blocked_users
+        return True if not self.blocked_users else username not in self.blocked_users
 
     async def get_authenticated_user(self, handler, data):
         """Authenticate the user who is attempting to log in
@@ -495,9 +488,7 @@ class Authenticator(LoggingConfigurable):
         )
         allowed_pass = await maybe_future(self.check_allowed(username, authenticated))
 
-        if blocked_pass:
-            pass
-        else:
+        if not blocked_pass:
             self.log.warning("User %r blocked. Stop authentication", username)
             return
 
@@ -1186,9 +1177,7 @@ class DummyAuthenticator(Authenticator):
     async def authenticate(self, handler, data):
         """Checks against a global password if it's been set. If not, allow any user/pass combo"""
         if self.password:
-            if data['password'] == self.password:
-                return data['username']
-            return None
+            return data['username'] if data['password'] == self.password else None
         return data['username']
 
 

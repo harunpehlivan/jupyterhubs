@@ -177,14 +177,15 @@ class SpawnHandler(BaseHandler):
 
         # Try to start server directly when query arguments are passed.
         error_message = ''
-        query_options = {}
-        for key, byte_list in self.request.query_arguments.items():
-            query_options[key] = [bs.decode('utf8') for bs in byte_list]
+        query_options = {
+            key: [bs.decode('utf8') for bs in byte_list]
+            for key, byte_list in self.request.query_arguments.items()
+        }
 
         # 'next' is reserved argument for redirect after spawn
         query_options.pop('next', None)
 
-        if len(query_options) > 0:
+        if query_options:
             try:
                 self.log.debug(
                     "Triggering spawn with supplied query arguments for %s",
@@ -246,9 +247,11 @@ class SpawnHandler(BaseHandler):
                 400, f"{spawner._log_name} is pending {spawner.pending}"
             )
 
-        form_options = {}
-        for key, byte_list in self.request.body_arguments.items():
-            form_options[key] = [bs.decode('utf8') for bs in byte_list]
+        form_options = {
+            key: [bs.decode('utf8') for bs in byte_list]
+            for key, byte_list in self.request.body_arguments.items()
+        }
+
         for key, byte_list in self.request.files.items():
             form_options["%s_file" % key] = byte_list
         try:

@@ -233,8 +233,7 @@ class HubAuth(SingletonConfigurable):
 
     @default('api_url')
     def _api_url(self):
-        env_url = os.getenv('JUPYTERHUB_API_URL')
-        if env_url:
+        if env_url := os.getenv('JUPYTERHUB_API_URL'):
             return env_url
         else:
             return 'http://127.0.0.1:8081' + url_path_join(self.hub_prefix, 'api')
@@ -310,9 +309,7 @@ class HubAuth(SingletonConfigurable):
 
     @default('cookie_options')
     def _default_cookie_options(self):
-        # load default from env
-        options_env = os.environ.get('JUPYTERHUB_COOKIE_OPTIONS')
-        if options_env:
+        if options_env := os.environ.get('JUPYTERHUB_COOKIE_OPTIONS'):
             return json.loads(options_env)
         else:
             return {}
@@ -352,11 +349,9 @@ class HubAuth(SingletonConfigurable):
 
     @default('oauth_scopes')
     def _default_scopes(self):
-        env_scopes = os.getenv('JUPYTERHUB_OAUTH_SCOPES')
-        if env_scopes:
+        if env_scopes := os.getenv('JUPYTERHUB_OAUTH_SCOPES'):
             return set(json.loads(env_scopes))
-        service_name = os.getenv("JUPYTERHUB_SERVICE_NAME")
-        if service_name:
+        if service_name := os.getenv("JUPYTERHUB_SERVICE_NAME"):
             return {f'access:services!service={service_name}'}
         return set()
 
@@ -510,11 +505,9 @@ class HubAuth(SingletonConfigurable):
 
         user_token = handler.get_argument('token', '')
         if not user_token:
-            # get it from Authorization header
-            m = self.auth_header_pat.match(
+            if m := self.auth_header_pat.match(
                 handler.request.headers.get(self.auth_header_name, '')
-            )
-            if m:
+            ):
                 user_token = m.group(1)
         return user_token
 
@@ -553,9 +546,7 @@ class HubAuth(SingletonConfigurable):
         handler._cached_hub_user = user_model = None
         session_id = self.get_session_id(handler)
 
-        # check token first
-        token = self.get_token(handler)
-        if token:
+        if token := self.get_token(handler):
             user_model = self.user_for_token(token, session_id=session_id)
             if user_model:
                 handler._token_authenticated = True
@@ -756,9 +747,7 @@ class HubOAuth(HubAuth):
             # use a randomized cookie suffix to avoid collisions
             # in case of concurrent logins
             app_log.warning("Detected unused OAuth state cookies")
-            cookie_suffix = ''.join(
-                random.choice(string.ascii_letters) for i in range(8)
-            )
+            cookie_suffix = ''.join(random.choice(string.ascii_letters) for _ in range(8))
             cookie_name = f'{self.state_cookie_name}-{cookie_suffix}'
             extra_state['cookie_name'] = cookie_name
         else:
@@ -961,8 +950,7 @@ class HubAuthenticated:
             return model
 
         if self.hub_scopes:
-            scopes = self.hub_auth.check_scopes(self.hub_scopes, model)
-            if scopes:
+            if scopes := self.hub_auth.check_scopes(self.hub_scopes, model):
                 app_log.debug(
                     f"Allowing Hub {kind} {name} based on oauth scopes {scopes}"
                 )
@@ -1078,8 +1066,7 @@ class HubOAuthCallbackHandler(HubOAuthenticated, RequestHandler):
     """
 
     async def get(self):
-        error = self.get_argument("error", False)
-        if error:
+        if error := self.get_argument("error", False):
             msg = self.get_argument("error_description", error)
             raise HTTPError(400, "Error in oauth: %s" % msg)
 

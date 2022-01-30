@@ -96,10 +96,7 @@ class Spawner(LoggingConfigurable):
 
         Used in logging for consistency with named servers.
         """
-        if self.name:
-            return f'{self.user.name}:{self.name}'
-        else:
-            return self.user.name
+        return f'{self.user.name}:{self.name}' if self.name else self.user.name
 
     @property
     def _failed(self):
@@ -164,12 +161,11 @@ class Spawner(LoggingConfigurable):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
 
-        missing = []
-        for attr in ('start', 'stop', 'poll'):
-            if getattr(Spawner, attr) is getattr(cls, attr):
-                missing.append(attr)
-
-        if missing:
+        if missing := [
+            attr
+            for attr in ('start', 'stop', 'poll')
+            if getattr(Spawner, attr) is getattr(cls, attr)
+        ]:
             raise NotImplementedError(
                 "class `{}` needs to redefine the `start`,"
                 "`stop` and `poll` methods. `{}` not redefined.".format(
@@ -198,16 +194,11 @@ class Spawner(LoggingConfigurable):
                 # delete the old value
                 db = inspect(self.orm_spawner.server).session
                 db.delete(self.orm_spawner.server)
-            if server is None:
-                self.orm_spawner.server = None
-            else:
-                self.orm_spawner.server = server.orm_server
+            self.orm_spawner.server = None if server is None else server.orm_server
 
     @property
     def name(self):
-        if self.orm_spawner:
-            return self.orm_spawner.name
-        return ''
+        return self.orm_spawner.name if self.orm_spawner else ''
 
     internal_ssl = Bool(False)
     internal_trust_bundles = Dict()
@@ -381,12 +372,11 @@ class Spawner(LoggingConfigurable):
 
         .. versionadded:: 0.9
         """
-        if callable(self.options_form):
-            options_form = await maybe_future(self.options_form(self))
-        else:
-            options_form = self.options_form
-
-        return options_form
+        return (
+            await maybe_future(self.options_form(self))
+            if callable(self.options_form)
+            else self.options_form
+        )
 
     options_from_form = Callable(
         help="""
@@ -765,8 +755,7 @@ class Spawner(LoggingConfigurable):
         state: dict
             a JSONable dict of state
         """
-        state = {}
-        return state
+        return {}
 
     def clear_state(self):
         """Clear any state that should be cleared when the single-user server stops.
@@ -887,10 +876,7 @@ class Spawner(LoggingConfigurable):
         # Called last to ensure highest priority, in case of overriding other
         # 'default' variables like the API url
         for key, value in self.environment.items():
-            if callable(value):
-                env[key] = value(self)
-            else:
-                env[key] = value
+            env[key] = value(self) if callable(value) else value
         return env
 
     async def get_url(self):
@@ -1019,12 +1005,11 @@ class Spawner(LoggingConfigurable):
             alt_names=alt_names,
             overwrite=True,
         )
-        paths = {
+        return {
             "keyfile": notebook_key_pair['files']['key'],
             "certfile": notebook_key_pair['files']['cert'],
             "cafile": self.internal_trust_bundles[notebook_component],
         }
-        return paths
 
     async def move_certs(self, paths):
         """Takes certificate paths and makes them available to the notebook server
@@ -1277,7 +1262,7 @@ def _try_setcwd(path):
             os.chdir(path)
         except OSError as e:
             exc = e  # break exception instance out of except scope
-            print(f"Couldn't set CWD to {path} ({e})", file=sys.stderr)
+            print(f"Couldn't set CWD to {path} ({exc})", file=sys.stderr)
             path, _ = os.path.split(path)
         else:
             return
@@ -1577,11 +1562,10 @@ class LocalProcessSpawner(Spawner):
             alive = psutil.pid_exists(self.pid)
         else:
             alive = await self._signal(0)
-        if not alive:
-            self.clear_state()
-            return 0
-        else:
+        if alive:
             return None
+        self.clear_state()
+        return 0
 
     async def _signal(self, sig):
         """Send given signal to a single-user server's process.

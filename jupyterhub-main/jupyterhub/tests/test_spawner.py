@@ -184,7 +184,7 @@ async def test_spawner_poll(db):
 
     # kill the process
     proc.terminate()
-    for i in range(10):
+    for _ in range(10):
         if proc.poll() is None:
             await asyncio.sleep(1)
         else:

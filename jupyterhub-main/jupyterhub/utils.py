@@ -353,7 +353,7 @@ def hash_token(token, salt=8, rounds=16384, algorithm='sha512'):
         bsalt = salt.encode('utf8')
     btoken = token.encode('utf8', 'replace')
     h.update(bsalt)
-    for i in range(rounds):
+    for _ in range(rounds):
         h.update(btoken)
     digest = h.hexdigest()
 
@@ -415,11 +415,7 @@ def print_ps_info(file=sys.stderr):
     p = psutil.Process()
     # format CPU percentage
     cpu = p.cpu_percent(0.1)
-    if cpu >= 10:
-        cpu_s = "%i" % cpu
-    else:
-        cpu_s = "%.1f" % cpu
-
+    cpu_s = "%i" % cpu if cpu >= 10 else "%.1f" % cpu
     # format memory (only resident set)
     rss = p.memory_info().rss
     if rss >= 1e9:
@@ -506,11 +502,7 @@ def print_stacks(file=sys.stderr):
 
         print(''.join(['\n'] + traceback.format_list(stack)), file=file)
 
-    # also show asyncio tasks, if any
-    # this will increase over time as we transition from tornado
-    # coroutines to native `async def`
-    tasks = asyncio_all_tasks()
-    if tasks:
+    if tasks := asyncio_all_tasks():
         print("AsyncIO tasks: %i" % len(tasks))
         for task in tasks:
             task.print_stack(file=file)
@@ -659,13 +651,10 @@ def get_accepted_mimetype(accept_header, choices=None):
     or nothing is specified.
     """
     for (mime, params, q) in _parse_accept_header(accept_header):
-        if choices:
-            if mime in choices:
-                return mime
-            else:
-                continue
-        else:
+        if choices and mime in choices or not choices:
             return mime
+        else:
+            continue
     return None
 
 
@@ -701,9 +690,7 @@ def get_browser_protocol(request):
     so trusting possible spoofs is the right thing to do.
     """
     headers = request.headers
-    # first choice: Forwarded header
-    forwarded_header = headers.get("Forwarded")
-    if forwarded_header:
+    if forwarded_header := headers.get("Forwarded"):
         first_forwarded = forwarded_header.split(",", 1)[0].strip()
         fields = {}
         forwarded_dict = {}
@@ -717,9 +704,9 @@ def get_browser_protocol(request):
                 f"Forwarded header present without protocol: {forwarded_header}"
             )
 
-    # second choice: X-Scheme or X-Forwarded-Proto
-    proto_header = headers.get("X-Scheme", headers.get("X-Forwarded-Proto", None))
-    if proto_header:
+    if proto_header := headers.get(
+        "X-Scheme", headers.get("X-Forwarded-Proto", None)
+    ):
         proto_header = proto_header.split(",")[0].strip().lower()
         if proto_header in {"http", "https"}:
             return proto_header

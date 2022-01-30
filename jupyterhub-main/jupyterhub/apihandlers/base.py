@@ -159,9 +159,7 @@ class APIHandler(BaseHandler):
             except Exception:
                 pass
 
-            # construct the custom reason, if defined
-            reason = getattr(exception, 'reason', '')
-            if reason:
+            if reason := getattr(exception, 'reason', ''):
                 status_message = reason
 
         if exception and isinstance(exception, SQLAlchemyError):
@@ -178,10 +176,7 @@ class APIHandler(BaseHandler):
 
         self.set_header('Content-Type', 'application/json')
         if isinstance(exception, web.HTTPError):
-            # allow setting headers from exceptions
-            # since exception handler clears headers
-            headers = getattr(exception, 'headers', None)
-            if headers:
+            if headers := getattr(exception, 'headers', None):
                 for key, value in headers.items():
                     self.set_header(key, value)
             # Content-Length must be recalculated.
@@ -220,7 +215,7 @@ class APIHandler(BaseHandler):
             owner_key = 'service'
             owner = token.service.name
 
-        model = {
+        return {
             owner_key: owner,
             'id': token.api_id,
             'kind': 'api_token',
@@ -233,7 +228,6 @@ class APIHandler(BaseHandler):
             'oauth_client': token.oauth_client.description
             or token.oauth_client.identifier,
         }
-        return model
 
     def _filter_model(self, model, access_map, entity, kind, keys=None):
         """
@@ -418,8 +412,7 @@ class APIHandler(BaseHandler):
             limit = abs(int(limit))
             if limit > max_limit:
                 limit = max_limit
-            if limit < 1:
-                limit = 1
+            limit = max(limit, 1)
         except Exception as e:
             raise web.HTTPError(
                 400, "Invalid argument type, offset and limit must be integers"

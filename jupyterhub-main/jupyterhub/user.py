@@ -143,14 +143,12 @@ class UserDict(dict):
             return user
         elif isinstance(key, int):
             id = key
-            if id not in self:
-                orm_user = self.db.query(orm.User).filter(orm.User.id == id).first()
-                if orm_user is None:
-                    raise KeyError("No such user: %s" % id)
-                user = self.add(orm_user)
-            else:
-                user = super().__getitem__(id)
-            return user
+            if id in self:
+                return super().__getitem__(id)
+            orm_user = self.db.query(orm.User).filter(orm.User.id == id).first()
+            if orm_user is None:
+                raise KeyError("No such user: %s" % id)
+            return self.add(orm_user)
         else:
             raise KeyError(repr(key))
 
@@ -195,8 +193,7 @@ class UserDict(dict):
         counts = defaultdict(lambda: 0)
         for user in self.values():
             for spawner in user.spawners.values():
-                pending = spawner.pending
-                if pending:
+                if pending := spawner.pending:
                     counts['pending'] += 1
                     counts[pending + '_pending'] += 1
                 if spawner.active:
@@ -312,10 +309,8 @@ class User:
             )
             return
         # loading auth_state
-        if auth_state:
-            # Crypt has multiple keys, store again with new key for rotation.
-            if len(CryptKeeper.instance().keys) > 1:
-                await self.save_auth_state(auth_state)
+        if auth_state and len(CryptKeeper.instance().keys) > 1:
+            await self.save_auth_state(auth_state)
         return auth_state
 
     async def delete_spawners(self):
@@ -457,9 +452,7 @@ class User:
     @property
     def running(self):
         """property for whether the user's default server is running"""
-        if not self.spawners:
-            return False
-        return self.spawner.ready
+        return False if not self.spawners else self.spawner.ready
 
     @property
     def active(self):
@@ -537,10 +530,7 @@ class User:
 
     def server_url(self, server_name=''):
         """Get the url for a server with a given name"""
-        if not server_name:
-            return self.url
-        else:
-            return url_path_join(self.url, server_name)
+        return self.url if not server_name else url_path_join(self.url, server_name)
 
     def progress_url(self, server_name=''):
         """API URL for progress endpoint for a server with a given name"""
@@ -587,20 +577,17 @@ class User:
         self.log.error(
             "Auth expired for %s; cannot spawn until they login again", self.name
         )
-        # auth expired, cannot spawn without a fresh login
-        # it's the current user *and* spawn via GET, trigger login redirect
-        if handler.request.method == 'GET' and handler.current_user is self:
-            self.log.info("Redirecting %s to login to refresh auth", self.name)
-            url = self.get_login_url()
-            next_url = self.request.uri
-            sep = '&' if '?' in url else '?'
-            url += sep + urlencode(dict(next=next_url))
-            self.redirect(url)
-            raise web.Finish()
-        else:
+        if handler.request.method != 'GET' or handler.current_user is not self:
             # spawn via POST or on behalf of another user.
             # nothing we can do here but fail
             raise web.HTTPError(400, f"{self.name}'s authentication has expired")
+        self.log.info("Redirecting %s to login to refresh auth", self.name)
+        url = self.get_login_url()
+        next_url = self.request.uri
+        sep = '&' if '?' in url else '?'
+        url += sep + urlencode(dict(next=next_url))
+        self.redirect(url)
+        raise web.Finish()
 
     async def spawn(self, server_name='', options=None, handler=None):
         """Start the user's spawner

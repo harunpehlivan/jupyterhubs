@@ -31,21 +31,14 @@ def authenticated(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = session.get("token")
-
-        if token:
-            user = auth.user_for_token(token)
-        else:
-            user = None
-
+        user = auth.user_for_token(token) if (token := session.get("token")) else None
         if user:
             return f(user, *args, **kwargs)
-        else:
-            # redirect to login url on failed auth
-            state = auth.generate_state(next_url=request.path)
-            response = make_response(redirect(auth.login_url + '&state=%s' % state))
-            response.set_cookie(auth.state_cookie_name, state)
-            return response
+        # redirect to login url on failed auth
+        state = auth.generate_state(next_url=request.path)
+        response = make_response(redirect(auth.login_url + '&state=%s' % state))
+        response.set_cookie(auth.state_cookie_name, state)
+        return response
 
     return decorated
 
@@ -75,5 +68,4 @@ def oauth_callback():
     # store token in session cookie
     session["token"] = token
     next_url = auth.get_next_url(cookie_state) or prefix
-    response = make_response(redirect(next_url))
-    return response
+    return make_response(redirect(next_url))

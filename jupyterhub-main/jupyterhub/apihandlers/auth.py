@@ -34,8 +34,7 @@ class TokenAPIHandler(APIHandler):
         if orm_token is None:
             raise web.HTTPError(404)
 
-        owner = orm_token.user or orm_token.service
-        if owner:
+        if owner := orm_token.user or orm_token.service:
             # having a token means we should be able to read the owner's model
             # (this is the only thing this handler is for)
             self.expanded_scopes.update(scopes.identify_scopes(owner))
@@ -135,11 +134,7 @@ class OAuthHandler:
 
         Adds user, session_id, client to oauth credentials
         """
-        if credentials is None:
-            credentials = {}
-        else:
-            credentials = credentials.copy()
-
+        credentials = {} if credentials is None else credentials.copy()
         session_id = self.get_session_cookie()
         if session_id is None:
             session_id = self.set_session_cookie()

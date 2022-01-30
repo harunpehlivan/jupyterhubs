@@ -259,8 +259,7 @@ def test_get_subscopes(db, scopes, subscopes):
 async def test_load_default_roles(tmpdir, request):
     """Test loading default roles in app.py"""
     kwargs = {}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     hub.init_db()
@@ -339,7 +338,7 @@ async def test_creating_roles(app, role, role_def, response_type, response):
         with pytest.raises(response):
             roles.create_role(db, role_def)
 
-    elif response_type == 'warning' or response_type == 'info':
+    elif response_type in ['warning', 'info']:
         with pytest.warns(response):
             roles.create_role(db, role_def)
         # check the role has been created/modified
@@ -350,7 +349,6 @@ async def test_creating_roles(app, role, role_def, response_type, response):
         if 'scopes' in role_def.keys():
             assert role.scopes == role_def['scopes']
 
-    # make sure no warnings/info logged when the role exists and its definition hasn't been changed
     elif response_type == 'no-log':
         with pytest.warns(response) as record:
             roles.create_role(db, role_def)
@@ -418,8 +416,7 @@ async def test_delete_roles(db, role_type, rolename, response_type, response):
 async def test_scope_existence(tmpdir, request, role, response):
     """Test checking of scopes provided in role definitions"""
     kwargs = {'load_roles': [role]}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     hub.init_db()
@@ -461,8 +458,7 @@ async def test_load_roles_users(tmpdir, request, explicit_allowed_users):
         },
     ]
     kwargs = {'load_roles': roles_to_load}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     hub.init_db()
@@ -527,8 +523,7 @@ async def test_load_roles_services(tmpdir, request):
         'services': services,
         'service_tokens': service_tokens,
     }
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     hub.init_db()
@@ -590,8 +585,7 @@ async def test_load_roles_groups(tmpdir, request):
         },
     ]
     kwargs = {'load_groups': groups_to_load, 'load_roles': roles_to_load}
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     hub.init_db()
@@ -637,8 +631,7 @@ async def test_load_roles_user_tokens(tmpdir, request):
         'load_roles': roles_to_load,
         'api_tokens': user_tokens,
     }
-    ssl_enabled = getattr(request.module, "ssl_enabled", False)
-    if ssl_enabled:
+    if ssl_enabled := getattr(request.module, "ssl_enabled", False):
         kwargs['internal_certs_location'] = str(tmpdir)
     hub = MockHub(**kwargs)
     hub.init_db()
@@ -704,10 +697,7 @@ async def test_get_new_token_via_api(app, headers, rolename, scopes, status):
                 group.roles.append(group_role)
                 user.groups.append(group)
                 app.db.commit()
-    if rolename:
-        body = json.dumps({'roles': [rolename]})
-    else:
-        body = ''
+    body = json.dumps({'roles': [rolename]}) if rolename else ''
     # request a new token
     r = await api_request(
         app, 'users/user/tokens', method='post', headers=headers, data=body
@@ -799,11 +789,11 @@ async def test_user_filter_expansion(app, scope_list, kind, test_for_token):
         for ex_scope in expanded_scopes:
             ex_base, ex__, ex_filter = ex_scope.partition('!')
             # check that the filter has been expanded to include the username if '!user' filter
-            if scope in ex_scope and filter == 'user':
-                assert ex_filter == f'{filter}={orm_obj.name}'
-            # make sure the filter has been left unchanged if other filter provided
-            elif scope in ex_scope and '=' in filter:
-                assert ex_filter == filter
+            if scope in ex_scope:
+                if filter == 'user':
+                    assert ex_filter == f'{filter}={orm_obj.name}'
+                elif '=' in filter:
+                    assert ex_filter == filter
 
     app.db.delete(orm_obj)
     app.db.delete(test_role)
@@ -890,11 +880,7 @@ async def test_server_role_api_calls(
     else:
         api_token = user.new_api_token(roles=[token_role])
 
-    if for_user == 'same_user':
-        username = user.name
-    else:
-        username = 'otheruser'
-
+    username = user.name if for_user == 'same_user' else 'otheruser'
     if api_endpoint == 'activity':
         path = f"users/{username}/activity"
         data = json.dumps({"servers": {"": {"last_activity": utcnow().isoformat()}}})
@@ -955,7 +941,7 @@ async def test_user_group_roles(app, create_temp_role):
     # repeat check to ensure group roles don't get added to the user at all
     # regression test for #3472
     roles_before = list(user.roles)
-    for i in range(3):
+    for _ in range(3):
         roles.expand_roles_to_scopes(user.orm_user)
         user_roles = list(user.roles)
         assert user_roles == roles_before

@@ -365,7 +365,7 @@ async def test_get_users_pagination(
     existing_users = db.query(orm.User).order_by(orm.User.id.asc())
     usernames.extend(u.name for u in existing_users)
 
-    for i in range(n - existing_users.count()):
+    for _ in range(n - existing_users.count()):
         name = new_username()
         usernames.append(name)
         add_user(db, app, name=name)
@@ -880,7 +880,7 @@ async def test_spawn(app):
     after_servers = sorted(db.query(orm.Server), key=lambda s: s.url)
     assert before_servers == after_servers
     tokens = list(db.query(orm.APIToken).filter(orm.APIToken.user_id == user.id))
-    assert tokens == []
+    assert not tokens
     assert app.users.count_active_users()['pending'] == 0
 
 
@@ -1453,10 +1453,7 @@ async def test_get_new_token(app, headers, status, note, expires_in):
         options['note'] = note
     if expires_in:
         options['expires_in'] = expires_in
-    if options:
-        body = json.dumps(options)
-    else:
-        body = ''
+    body = json.dumps(options) if options else ''
     # request a new token
     r = await api_request(
         app, 'users/admin/tokens', method='post', headers=headers, data=body
@@ -1991,11 +1988,7 @@ async def test_update_server_activity(app, user, server_name, fresh):
     app.db.commit()
 
     td = timedelta(minutes=1)
-    if fresh:
-        activity = now + td
-    else:
-        activity = now - td
-
+    activity = now + td if fresh else now - td
     r = await api_request(
         app,
         f"users/{user.name}/activity",
@@ -2017,11 +2010,7 @@ async def test_update_server_activity(app, user, server_name, fresh):
 
     # check that last activity was updated
 
-    if fresh:
-        expected = activity.replace(tzinfo=None)
-    else:
-        expected = now.replace(tzinfo=None)
-
+    expected = activity.replace(tzinfo=None) if fresh else now.replace(tzinfo=None)
     assert user.spawners[server_name].orm_spawner.last_activity == expected
 
 

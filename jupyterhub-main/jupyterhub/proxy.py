@@ -180,10 +180,7 @@ class Proxy(LoggingConfigurable):
                 "Cannot add route without host %r, using host-routing" % routespec
             )
         # add trailing slash
-        if not routespec.endswith('/'):
-            return routespec + '/'
-        else:
-            return routespec
+        return routespec + '/' if not routespec.endswith('/') else routespec
 
     async def add_route(self, routespec, target, data):
         """Add a route to the proxy.
@@ -315,10 +312,12 @@ class Proxy(LoggingConfigurable):
 
         Used when loading up a new proxy.
         """
-        futures = []
-        for service in service_dict.values():
-            if service.server:
-                futures.append(self.add_service(service))
+        futures = [
+            self.add_service(service)
+            for service in service_dict.values()
+            if service.server
+        ]
+
         # wait after submitting them all
         await asyncio.gather(*futures)
 
@@ -503,12 +502,8 @@ class ConfigurableHTTPProxy(Proxy):
 
     @default('api_url')
     def _api_url_default(self):
-        url = '127.0.0.1:8001'
-        proto = 'http'
-        if self.app.internal_ssl:
-            proto = 'https'
-
-        return f"{proto}://{url}"
+        proto = 'https' if self.app.internal_ssl else 'http'
+        return f'{proto}://127.0.0.1:8001'
 
     command = Command(
         'configurable-http-proxy',
@@ -537,8 +532,8 @@ class ConfigurableHTTPProxy(Proxy):
                 process = psutil.Process(pid)
                 if self.command and self.command[0]:
                     process_cmd = process.cmdline()
-                    if process_cmd and not any(
-                        self.command[0] in clause for clause in process_cmd
+                    if process_cmd and all(
+                        self.command[0] not in clause for clause in process_cmd
                     ):
                         raise ProcessLookupError
             except (psutil.AccessDenied, psutil.NoSuchProcess):
@@ -620,11 +615,9 @@ class ConfigurableHTTPProxy(Proxy):
             os.remove(self.pid_file)
         except FileNotFoundError:
             self.log.debug("PID file %s already removed", self.pid_file)
-            pass
 
     def _get_ssl_options(self):
         """List of cmd proxy options to use internal SSL"""
-        cmd = []
         proxy_api = 'proxy-api'
         proxy_client = 'proxy-client'
         api_key = self.app.internal_proxy_certs[proxy_api][
@@ -637,7 +630,7 @@ class ConfigurableHTTPProxy(Proxy):
         client_cert = self.app.internal_proxy_certs[proxy_client]['certfile']
         client_ca = self.app.internal_trust_bundles[proxy_client + '-ca']
 
-        cmd.extend(['--api-ssl-key', api_key])
+        cmd = list(['--api-ssl-key', api_key])
         cmd.extend(['--api-ssl-cert', api_cert])
         cmd.extend(['--api-ssl-ca', api_ca])
         cmd.extend(['--api-ssl-request-cert'])

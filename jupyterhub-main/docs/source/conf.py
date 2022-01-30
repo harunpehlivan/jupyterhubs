@@ -234,10 +234,7 @@ intersphinx_mapping = {
     'tornado': ('https://www.tornadoweb.org/en/stable/', None),
 }
 
-# -- Read The Docs --------------------------------------------------------
-
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-if on_rtd:
+if on_rtd := os.environ.get('READTHEDOCS', None) == 'True':
     # readthedocs.org uses their theme by default, so no need to specify it
     # build both metrics and rest-api, since RTD doesn't run make
     from subprocess import check_call as sh
